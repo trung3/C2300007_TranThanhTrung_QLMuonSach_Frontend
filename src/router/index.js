@@ -4,8 +4,8 @@ import { useAuthStore } from "@/stores/auth.store";
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/login", name: "login", component: () => import("@/views/LoginView.vue"), meta:{ guestOnly:true } },
-    { path: "/", name: "dashboard", component: () => import("@/views/AdminBooks.vue"), meta:{ requiresAuth:true } },
+    { path: "/login", name: "login", component: () => import("@/components/LoginView.vue"), meta:{ guestOnly:true } },
+    { path: "/", name: "dashboard", component: () => import("@/components/AdminBooks.vue"), meta:{ requiresAuth:true } },
 
     // Admin layout + nested pages
     {
@@ -13,9 +13,10 @@ const router = createRouter({
   component: () => import("@/layouts/AdminLayout.vue"),
   meta: { requiresAuth: true },
   children: [
-    { path: "QLSach",    name: "admin-books",  component: () => import("@/views/AdminBooks.vue") },
-    { path: "QLDocGia",  name: "admin-readers", component: () => import("@/views/AdminReaders.vue") },
-    { path: "QLMuonTra", name: "admin-loans",   component: () => import("@/views/AdminLoans.vue") },
+    { path: "QLSach",    name: "admin-books",  component: () => import("@/components/AdminBooks.vue") },
+    { path: "QLDocGia",  name: "admin-readers", component: () => import("@/components/AdminReaders.vue") },
+    { path: "QLMuonTra", name: "admin-loans",   component: () => import("@/components/AdminLoans.vue") },
+    { path: "QLNXB", name: "admin-publishers",   component: () => import("@/components/AdminPublishers.vue") },
     { path: "", redirect: { name: "admin-books" } },
   ],
 }

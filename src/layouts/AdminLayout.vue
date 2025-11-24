@@ -12,6 +12,7 @@
           <div class="flex space-x-6">
             <RouterLink to="/" class="hover:text-blue-200 transition">Trang Chủ</RouterLink>
             <RouterLink to="/admin/QLSach" class="hover:text-blue-200 transition">Quản Lý Sách</RouterLink>
+             <RouterLink to="/admin/QLNXB" class="hover:text-blue-200 transition">Quản Lý NXB</RouterLink>
             <RouterLink to="/admin/QLDocGia" class="hover:text-blue-200 transition">Quản Lý Người Dùng</RouterLink>
             <RouterLink to="/admin/QLMuonTra" class="hover:text-blue-200 transition">Quản Lý Mượn/Trả</RouterLink>
             <p v-if="auth.user">Xin chào,
