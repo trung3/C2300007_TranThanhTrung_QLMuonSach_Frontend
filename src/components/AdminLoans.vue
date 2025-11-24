@@ -236,17 +236,6 @@ const filteredLoans = computed(() => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 /* Phân trang */
 const page = ref(1);
 const limit = ref(10);
@@ -287,10 +276,11 @@ async function saveLoan() {
 
 /* Trả sách */
 /* Trả sách */
+/* Trả sách */
+/* Trả sách */
+/* Trả sách */
+/* Trả sách */
 async function returnBook(id) {
-  console.log("ID gửi lên API:", `"${id}"`);
-  console.log("ID gửi lên:", id, "length:", id.length);
-
   if (!confirm("Xác nhận trả sách?")) return;
 
   loading.value = true;
@@ -298,44 +288,21 @@ async function returnBook(id) {
   okMsg.value = "";
 
   try {
-    // Gọi API trực tiếp, bỏ qua http.js để tránh lỗi URL bị sai
-    const res = await fetch(`http://localhost:3000/api/loans/${id}/return`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token") || ""}`
-      }
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || "Không thể trả sách.");
-    }
-
-    okMsg.value = data.message || "Đã trả sách.";
-    await loadAll();
+    // 1. Gọi API
+    const { data } = await Loans.returnBook(id); //
+    okMsg.value = data?.message || "Đã trả sách thành công.";
+    
+    // 2. QUAN TRỌNG: Tải lại dữ liệu ngay lập tức
+    await loadAll(); 
 
   } catch (e) {
-    error.value = e.message || "Không thể trả sách.";
+    // Hiển thị lỗi từ Back-end (ví dụ: đã trả rồi mà bấm tiếp)
+    const serverMsg = e.response?.data?.message;
+    error.value = serverMsg || e.message || "Không thể trả sách.";
+  } finally {
+    loading.value = false;
   }
-
-  loading.value = false;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 onMounted(loadAll);
 </script>
 
