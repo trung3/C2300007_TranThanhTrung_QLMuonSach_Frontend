@@ -6,7 +6,7 @@
         <div class="flex justify-between items-center py-4">
           <div class="flex items-center space-x-2">
             <i data-feather="book" class="w-8 h-8"></i>
-            <span class="text-xl font-bold">Thư Viện Số - Quản Trị</span>
+            <span class="text-xl font-bold">Thư Viện Số - User</span>
           </div>
 
           <div class="flex space-x-6">
