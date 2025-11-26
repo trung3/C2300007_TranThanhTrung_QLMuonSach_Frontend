@@ -1,9 +1,9 @@
 import http from "./http";
 
-// file: File
 export const uploadBookImage = (file) => {
   const fd = new FormData();
-  fd.append("image", file);          // field name = "image" (đúng với backend)
-  // không set Content-Type, axios sẽ tự thêm boundary
-  return http.post("/uploads/book", fd);
+  fd.append("image", file); // Tên 'image' khớp với upload.single('image')
+
+  // 👇 SỬA THÀNH DÒNG NÀY 👇
+  return http.post("/uploads/book", fd); 
 };

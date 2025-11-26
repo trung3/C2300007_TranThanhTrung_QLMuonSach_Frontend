@@ -280,27 +280,30 @@ async function saveLoan() {
 /* Trả sách */
 /* Trả sách */
 /* Trả sách */
+// Trong file Vue quản lý mượn trả
 async function returnBook(id) {
   if (!confirm("Xác nhận trả sách?")) return;
 
-  loading.value = true;
-  error.value = "";
-  okMsg.value = "";
+  // 1. CẬP NHẬT GIAO DIỆN TRƯỚC (Để người dùng thấy "Đã trả" ngay lập tức)
+  const index = loans.value.findIndex(item => item._id === id);
+  if (index !== -1) {
+      // Tự sửa dữ liệu trong mảng local
+      loans.value[index].status = "returned";
+      loans.value[index].statusText = "Đã trả";
+      loans.value[index].returnDate = new Date().toISOString();
+  }
 
   try {
-    // 1. Gọi API
-    const { data } = await Loans.returnBook(id); //
-    okMsg.value = data?.message || "Đã trả sách thành công.";
+    // 2. Gọi API để lưu vào Database (Chạy ngầm)
+    await Loans.returnBook(id);
     
-    // 2. QUAN TRỌNG: Tải lại dữ liệu ngay lập tức
-    await loadAll(); 
-
+    // 3. Load lại lần nữa để đồng bộ dữ liệu thật (nếu cần)
+    // await loadAll();  <-- Có thể bỏ dòng này nếu bước 1 đã làm tốt
+    
   } catch (e) {
-    // Hiển thị lỗi từ Back-end (ví dụ: đã trả rồi mà bấm tiếp)
-    const serverMsg = e.response?.data?.message;
-    error.value = serverMsg || e.message || "Không thể trả sách.";
-  } finally {
-    loading.value = false;
+    // Nếu API lỗi -> Hoàn tác lại giao diện (Rollback)
+    // alert("Lỗi trả sách! Vui lòng thử lại.");
+    await loadAll(); // Tải lại dữ liệu gốc
   }
 }
 onMounted(loadAll);

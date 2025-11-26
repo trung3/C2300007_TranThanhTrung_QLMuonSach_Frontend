@@ -67,7 +67,11 @@ const router = createRouter({
           name: "home", // 👈 Tên này để khớp với router.push({ name: 'home' })
           component: () => import("@/components/Home.vue") 
         },
-        // Nếu muốn trang /user/QLSach thì thêm vào đây, nhưng thường trang chủ là list sách rồi
+        { 
+          path: "/cart", // Link mặc định của "/"
+          name: "cart", // 👈 Tên này để khớp với router.push({ name: 'home' })
+          component: () => import("@/components/Cart.vue") 
+        },
       ],
     },
     
