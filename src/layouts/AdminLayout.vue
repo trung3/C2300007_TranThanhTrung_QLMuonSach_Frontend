@@ -18,7 +18,7 @@
             <RouterLink to="/admin/QLMuonTra" class="hover:text-blue-200 transition">Quản Lý Mượn/Trả</RouterLink>
             <p v-if="auth.user">Xin chào,
              <b>
-            {{ auth.user?.name || auth.user?.username || auth.user?.code || "bạn" }}
+            {{ auth.user?.fullName || auth.user?.username || auth.user?.code || "bạn" }}
             </b>
             </p>
             <button class="btn" @click="logout">Đăng xuất</button>

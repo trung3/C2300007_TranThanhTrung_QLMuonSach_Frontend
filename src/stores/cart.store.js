@@ -1,49 +1,73 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { defineStore } from "pinia";
+import { useAuthStore } from "./auth.store"; 
 
-export const useCartStore = defineStore('cart', () => {
-    // 1. STATE: Danh sách sách trong giỏ
-    // Lấy từ LocalStorage ra nếu có, không thì là mảng rỗng
-    const cart = ref(JSON.parse(localStorage.getItem('myLibraryCart')) || []);
+export const useCartStore = defineStore("cart", {
+  state: () => ({
+    items: [], // 👇 Luôn đặt tên là 'items' cho thống nhất
+  }),
 
-    // 2. GETTERS: Tính toán số liệu
-    // Tổng số sách
-    const totalItems = computed(() => cart.value.length);
+  getters: {
+    // Nếu items bị null thì trả về 0 để không lỗi
+    totalItems: (state) => state.items ? state.items.reduce((total, item) => total + (item.qty || 1), 0) : 0,
     
-    // 3. ACTIONS: Các hàm xử lý
-    
-    // Thêm sách vào giỏ
-    function addToCart(book) {
-        // Kiểm tra xem sách đã có chưa
-        const exists = cart.value.find(item => item._id === book._id);
-        if (exists) {
-            alert("Sách này đã có trong giỏ của bạn rồi!");
-        } else {
-            cart.value.push(book);
-            saveToLocalStorage();
-            alert("Đã thêm vào giỏ sách!");
+    totalPrice: (state) => state.items ? state.items.reduce((total, item) => total + (item.price || 0) * (item.qty || 1), 0) : 0,
+  },
+
+  actions: {
+    getStorageKey() {
+      const auth = useAuthStore();
+      if (auth.user && (auth.user._id || auth.user.sub)) {
+        return `cart_${auth.user._id || auth.user.sub}`;
+      }
+      return "cart_guest";
+    },
+
+    initCart() {
+      const key = this.getStorageKey();
+      const savedCart = localStorage.getItem(key);
+      
+      if (savedCart) {
+        try {
+          const parsed = JSON.parse(savedCart);
+          // 👇 Kiểm tra kỹ: Phải là mảng mới lấy, không thì lấy mảng rỗng
+          this.items = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          this.items = []; // Nếu JSON lỗi -> Reset rỗng
+          localStorage.removeItem(key);
         }
-    }
+      } else {
+        this.items = [];
+      }
+    },
 
-    // Xóa sách khỏi giỏ
-    function removeFromCart(bookId) {
-        if(confirm("Bạn muốn xóa sách này khỏi giỏ?")) {
-            cart.value = cart.value.filter(item => item._id !== bookId);
-            saveToLocalStorage();
-        }
-    }
+    saveToLocalStorage() {
+      const key = this.getStorageKey();
+      localStorage.setItem(key, JSON.stringify(this.items));
+    },
 
-    // Xóa sạch giỏ (sau khi mượn xong)
-    function clearCart() {
-        cart.value = [];
-        saveToLocalStorage();
-    }
+    addToCart(product) {
+      // Đảm bảo items là mảng trước khi push
+      if (!Array.isArray(this.items)) this.items = [];
 
-    // Hàm phụ: Lưu xuống LocalStorage của trình duyệt
-    function saveToLocalStorage() {
-        localStorage.setItem('myLibraryCart', JSON.stringify(cart.value));
-    }
+      const existingItem = this.items.find((item) => item._id === product._id);
+      if (existingItem) {
+        existingItem.qty = (existingItem.qty || 1) + 1;
+      } else {
+        this.items.push({ ...product, qty: 1 });
+      }
+      this.saveToLocalStorage();
+      
+    },
 
-    // Xuất ra để các component khác dùng
-    return { cart, totalItems, addToCart, removeFromCart, clearCart };
+    removeItem(productId) {
+      if (!this.items) return;
+      this.items = this.items.filter((item) => item._id !== productId);
+      this.saveToLocalStorage();
+    },
+
+    clearCart() {
+      this.items = [];
+      this.saveToLocalStorage();
+    }
+  },
 });

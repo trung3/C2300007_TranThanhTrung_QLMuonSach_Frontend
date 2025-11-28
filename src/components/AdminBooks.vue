@@ -92,19 +92,17 @@
 
             <div class="md:col-span-3 flex items-center gap-3 mt-4">
               <button type="submit"
-                class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition font-medium shadow-md"
+                class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition font-medium shadow-md flex items-center"
                 :disabled="loading">
-                <i data-feather="save" class="w-4 h-4 inline mr-1"></i>
-                {{ loading ? "Đang lưu..." : (editingId ? "Cập nhật" : "Thêm Sách") }}
+                <span v-if="loading" class="animate-spin mr-2 border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                <i v-else data-feather="save" class="w-4 h-4 inline mr-1"></i>
+                {{ loading ? "Đang xử lý..." : (editingId ? "Cập nhật" : "Thêm Sách") }}
               </button>
 
               <button v-if="editingId" type="button" class="px-4 py-2 rounded-lg border bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
                 @click="cancelEdit" :disabled="loading">
                 Hủy
               </button>
-
-              <span v-if="error" class="text-red-600 ml-3 text-sm font-medium">{{ error }}</span>
-              <span v-if="okMsg" class="text-green-600 ml-3 text-sm font-medium">{{ okMsg }}</span>
             </div>
           </form>
         </div>
@@ -199,24 +197,23 @@
 
 <script setup>
 import { RouterLink } from "vue-router";
-import { ref, reactive, onMounted, computed, onUpdated } from "vue";
+import { ref, reactive, onMounted, computed, onUpdated, nextTick } from "vue";
 import * as Books from "@/api/books.api";
 import { listPublishers } from "@/api/publishers.api";
 import { uploadBookImage } from "@/api/uploads.api";
+import Swal from 'sweetalert2'; // 👈 IMPORT SWAL
 
-// --- STATE QUẢN LÝ ---
+// --- STATE ---
 const page = ref(1);
 const limit = ref(12);
 const q = ref("");
 const selectedFile = ref(null);
 const previewUrl = ref("");
-const fileInput = ref(null); // Ref để điều khiển ô input file
+const fileInput = ref(null);
 
 const books = ref([]);
 const publishers = ref([]);
 const loading = ref(false);
-const error = ref("");
-const okMsg = ref("");
 const editingId = ref(null);
 
 const form = reactive({
@@ -231,11 +228,14 @@ const form = reactive({
   image: ""
 });
 
-// --- CÁC HÀM XỬ LÝ ẢNH ---
+// --- HELPER FUNCTIONS ---
+const updateIcons = () => {
+    nextTick(() => { if (window.feather) window.feather.replace(); });
+};
+
 function onFileChange(e) {
   const file = e.target.files?.[0];
   selectedFile.value = file || null;
-  // Tạo URL tạm thời để hiển thị ngay lập tức
   previewUrl.value = file ? URL.createObjectURL(file) : "";
 }
 
@@ -243,13 +243,9 @@ function clearImage() {
   selectedFile.value = null;
   previewUrl.value = "";
   form.image = ""; 
-  // Reset ô input file
-  if (fileInput.value) {
-    fileInput.value.value = "";
-  }
+  if (fileInput.value) fileInput.value.value = "";
 }
 
-// --- CÁC HÀM XỬ LÝ DỮ LIỆU ---
 function formatVnd(n) {
   if (n == null) return "-";
   try { return Number(n).toLocaleString("vi-VN") + " ₫"; } catch { return n; }
@@ -263,15 +259,17 @@ function nameOfPublisher(id) {
   return publishersById.value?.[id] || "—";
 }
 
+// --- API LOAD ---
 async function loadBooks() {
-  loading.value = true; error.value = "";
+  loading.value = true;
   try {
     const { data } = await Books.listBooks();
     books.value = Array.isArray(data) ? data : [];
   } catch (e) {
-    error.value = e?.response?.data?.message || "Không tải được danh sách sách";
+    Swal.fire('Lỗi', 'Không tải được danh sách sách', 'error');
   } finally {
     loading.value = false;
+    updateIcons();
   }
 }
 
@@ -282,7 +280,7 @@ async function loadPublishers() {
   } catch { publishers.value = []; }
 }
 
-// --- LOGIC TÌM KIẾM & PHÂN TRANG ---
+// --- FILTER & PAGINATION ---
 const filteredBooks = computed(() => {
   if (!q.value) return books.value;
   const kw = q.value.toLowerCase();
@@ -312,7 +310,7 @@ function handleSearch() {
   page.value = 1;
 }
 
-// --- LOGIC FORM (THÊM / SỬA / XÓA) ---
+// --- ACTIONS (THÊM / SỬA / XÓA) ---
 function resetForm() {
   Object.assign(form, { code: "", title: "", author: "", price: 0, qty: 0, publisherId: "", language: "vi", yearOfPublication: "", image: "" });
   clearImage();
@@ -330,7 +328,6 @@ function startEdit(b) {
   selectedFile.value = null;
   previewUrl.value = "";
   
-  // Scroll lên đầu trang để sửa cho dễ
   document.getElementById('books')?.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -339,46 +336,87 @@ function cancelEdit() {
   resetForm();
 }
 
+// 👇 HÀM LƯU ĐÃ SỬA DÙNG SWAL
 async function saveBook() {
-  loading.value = true; error.value = ""; okMsg.value = "";
+  loading.value = true;
   try {
-    // 1. Upload ảnh nếu có chọn file mới
+    // 1. Upload ảnh
     if (selectedFile.value) {
       const up = await uploadBookImage(selectedFile.value);
-      form.image = up?.data?.url || form.image; // Lưu URL trả về từ server
+      form.image = up?.data?.url || form.image;
     }
 
-    // 2. Tạo payload gửi đi
+    // 2. Gửi API
     const payload = { ...form };
 
     if (!editingId.value) {
       await Books.createBook(payload);
-      okMsg.value = "Thêm sách mới thành công!";
+      Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: 'Thêm sách mới thành công!',
+          timer: 2000,
+          showConfirmButton: false
+      });
     } else {
-      const { code, ...patch } = payload; // Thường không cho sửa mã sách
+      const { code, ...patch } = payload;
       await Books.updateBook(editingId.value, patch);
-      okMsg.value = "Cập nhật sách thành công!";
+      Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: 'Cập nhật sách thành công!',
+          timer: 2000,
+          showConfirmButton: false
+      });
       editingId.value = null;
     }
 
     await loadBooks();
     resetForm();
   } catch (e) {
-    error.value = e?.response?.data?.message || (editingId.value ? "Cập nhật thất bại" : "Thêm sách thất bại");
+    const msg = e?.response?.data?.message || "Có lỗi xảy ra";
+    Swal.fire({
+        icon: 'error',
+        title: 'Thất bại',
+        text: msg
+    });
   } finally {
     loading.value = false;
   }
 }
 
+// 👇 HÀM XÓA ĐÃ SỬA DÙNG SWAL
 async function removeBook(id) {
-  if (!confirm("Bạn chắc chắn muốn xóa sách này? Hành động không thể hoàn tác.")) return;
-  loading.value = true; error.value = ""; okMsg.value = "";
+  // Hiện hộp thoại xác nhận đẹp
+  const result = await Swal.fire({
+      title: 'Bạn chắc chắn?',
+      text: "Hành động này không thể hoàn tác!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Xóa ngay',
+      cancelButtonText: 'Hủy'
+  });
+
+  if (!result.isConfirmed) return;
+
+  loading.value = true;
   try {
     await Books.deleteBook(id);
     await loadBooks();
-    okMsg.value = "Đã xóa sách thành công.";
+    
+    Swal.fire(
+      'Đã xóa!',
+      'Sách đã được xóa khỏi hệ thống.',
+      'success'
+    );
   } catch (e) {
-    error.value = e?.response?.data?.message || "Xóa sách thất bại";
+    Swal.fire(
+      'Lỗi!',
+      e?.response?.data?.message || 'Xóa sách thất bại',
+      'error'
+    );
   } finally {
     loading.value = false;
   }
@@ -386,17 +424,16 @@ async function removeBook(id) {
 
 // --- LIFECYCLE ---
 onMounted(async () => {
-  if (window.feather) window.feather.replace();
+  updateIcons();
   await Promise.all([loadPublishers(), loadBooks()]);
 });
 
 onUpdated(() => {
-  if (window.feather) window.feather.replace();
+  updateIcons();
 });
 </script>
 
 <style scoped>
-/* CSS bổ sung (nếu Tailwind chưa đủ) */
 .bg-primary { background-color: #4f46e5; }
 .bg-secondary { background-color: #f8fafc; }
 .bg-accent { background-color: #10b981; }

@@ -4,7 +4,6 @@
       <div class="container mx-auto px-4">
         <h2 class="text-3xl font-bold text-center mb-12 text-primary">Quản Lý Nhà Xuất Bản</h2>
 
-        <!-- Form thêm/sửa NXB -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-8 border border-primary/10">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-xl font-semibold text-primary">
@@ -17,8 +16,8 @@
 
           <form class="grid grid-cols-1 md:grid-cols-3 gap-4" @submit.prevent="savePublishers">
             <input v-model.trim="form.code" placeholder="Mã NXB (vd: NXB001)"
-                   :disabled="editingId" 
-                   class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
+                   :disabled="!!editingId" 
+                   class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100" required>
 
             <input v-model.trim="form.name" placeholder="Tên NXB"
                    class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
@@ -28,23 +27,20 @@
 
             <div class="md:col-span-3 flex items-center gap-3">
               <button type="submit"
-                      class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                      class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
                       :disabled="loading">
-                {{ loading ? "Đang lưu..." : (editingId ? "Cập nhật" : "Thêm NXB") }}
+                <span v-if="loading" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                <span>{{ loading ? "Đang lưu..." : (editingId ? "Cập nhật" : "Thêm NXB") }}</span>
               </button>
 
-              <button v-if="editingId" type="button" class="px-4 py-2 rounded-lg border hover:bg-gray-50"
+              <button v-if="editingId" type="button" class="px-4 py-2 rounded-lg border hover:bg-gray-50 text-gray-700 transition"
                       @click="cancelEdit" :disabled="loading">
                 Hủy
               </button>
-
-              <span v-if="error" class="text-red-600 ml-3 text-sm">{{ error }}</span>
-              <span v-if="okMsg" class="text-green-600 ml-3 text-sm">{{ okMsg }}</span>
             </div>
           </form>
         </div>
 
-        <!-- Danh sách NXB -->
         <div class="bg-white rounded-lg shadow p-6 border border-primary/10 mt-6">
           <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 class="text-xl font-semibold text-primary">Danh Sách NXB</h3>
@@ -74,23 +70,25 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="loading">
-                  <td colspan="10" class="px-4 py-6 text-center text-gray-500">Đang tải…</td>
+                <tr v-if="loading && !publishers.length">
+                  <td colspan="5" class="px-4 py-6 text-center text-gray-500">Đang tải dữ liệu...</td>
                 </tr>
                 <tr v-else-if="!pagedPublishers.length">
-                  <td colspan="10" class="px-4 py-6 text-center text-gray-500">Không có NXB nào.</td>
+                  <td colspan="5" class="px-4 py-6 text-center text-gray-500">Không tìm thấy NXB nào.</td>
                 </tr>
 
-                <tr v-else v-for="b in pagedPublishers" :key="b._id" class="border-t hover:bg-gray-50">
+                <tr v-else v-for="b in pagedPublishers" :key="b._id" class="border-t hover:bg-gray-50 transition">
                   <td class="px-4 py-3 text-indigo-600 font-medium">#{{ b.code }}</td>
                   <td class="px-4 py-3 font-medium">{{ b.name }}</td>
                   <td class="px-4 py-3">{{ b.address || "—" }}</td>
-                  <td class="px-4 py-3">{{ b.createdAt }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-500">
+                    {{ new Date(b.createdAt).toLocaleDateString("vi-VN") }}
+                  </td>
                   <td class="px-4 py-3">
                     <div class="flex justify-end gap-2">
-                      <button class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+                      <button class="px-3 py-1 rounded bg-blue-100 text-blue-600 hover:bg-blue-200 text-sm font-medium transition"
                               @click="startEdit(b)">Sửa</button>
-                      <button class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
+                      <button class="px-3 py-1 rounded bg-red-100 text-red-600 hover:bg-red-200 text-sm font-medium transition"
                               @click="removePublishers(b._id)">Xóa</button>
                     </div>
                   </td>
@@ -99,12 +97,12 @@
             </table>
           </div>
 
-          <div class="mt-4 flex items-center justify-center gap-2">
-            <button class="px-3 py-1 border rounded"
+          <div class="mt-6 flex items-center justify-center gap-2">
+            <button class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50" 
                     :disabled="page===1 || loading"
                     @click="go(page-1)">« Trước</button>
-            <span class="px-3 py-1">Trang {{ page }} / {{ totalPages }}</span>
-            <button class="px-3 py-1 border rounded"
+            <span class="px-3 py-1 font-medium text-primary">Trang {{ page }} / {{ totalPages }}</span>
+            <button class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50" 
                     :disabled="page===totalPages || loading"
                     @click="go(page+1)">Sau »</button>
           </div>
@@ -116,16 +114,14 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from "vue";
-import * as Publishers from "@/api/publishers.api"; // ✅ Import module API đúng
-import { uploadBookImage } from "@/api/uploads.api";
+import * as Publishers from "@/api/publishers.api";
+import Swal from 'sweetalert2'; // 👈 IMPORT SWAL
 
 const page = ref(1);
 const limit = ref(12);
 const q = ref("");
 const publishers = ref([]);
 const loading = ref(false);
-const error = ref("");
-const okMsg = ref("");
 const editingId = ref(null);
 
 const form = reactive({
@@ -134,16 +130,22 @@ const form = reactive({
   address: "",
 });
 
-// ✅ Load danh sách NXB (chỉ 1 hàm duy nhất)
+// ✅ Load danh sách NXB
 async function loadPublishers() {
   loading.value = true;
-  error.value = "";
-  okMsg.value = "";
   try {
     const { data } = await Publishers.listPublishers();
     publishers.value = Array.isArray(data) ? data : (data?.items || []);
   } catch (e) {
-    error.value = e?.response?.data?.message || "Không tải được danh sách NXB";
+    Swal.fire({
+        icon: 'error',
+        title: 'Lỗi tải dữ liệu',
+        text: e?.response?.data?.message || "Không tải được danh sách NXB",
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+    });
   } finally {
     loading.value = false;
   }
@@ -188,46 +190,77 @@ function cancelEdit() {
   resetForm();
 }
 
-// ✅ Lưu hoặc cập nhật NXB
+// ✅ Lưu hoặc cập nhật NXB (Dùng Swal)
 async function savePublishers() {
   loading.value = true;
-  error.value = "";
-  okMsg.value = "";
   try {
     const payload = { ...form };
 
     if (!editingId.value) {
       await Publishers.createPublishers(payload);
-      okMsg.value = "Đã thêm NXB.";
+      Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: 'Đã thêm Nhà xuất bản mới!',
+          timer: 2000,
+          showConfirmButton: false
+      });
     } else {
       const { code, ...patch } = payload;
       await Publishers.updatePublishers(editingId.value, patch);
-      okMsg.value = "Đã cập nhật NXB.";
+      Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: 'Cập nhật thông tin NXB thành công!',
+          timer: 2000,
+          showConfirmButton: false
+      });
       editingId.value = null;
     }
 
     await loadPublishers();
-    
     resetForm();
   } catch (e) {
-    error.value = e?.response?.data?.message || (editingId.value ? "Cập nhật NXB thất bại" : "Thêm NXB thất bại");
+    Swal.fire({
+        icon: 'error',
+        title: 'Thất bại',
+        text: e?.response?.data?.message || "Có lỗi xảy ra khi lưu NXB"
+    });
   } finally {
     loading.value = false;
   }
 }
 
-// ✅ Xóa NXB
+// ✅ Xóa NXB (Dùng Swal Confirm)
 async function removePublishers(id) {
-  if (!confirm("Xóa NXB này?")) return;
+  const result = await Swal.fire({
+      title: 'Xóa NXB này?',
+      text: "Hành động này không thể hoàn tác!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Xóa ngay',
+      cancelButtonText: 'Hủy'
+  });
+
+  if (!result.isConfirmed) return;
+
   loading.value = true;
-  error.value = "";
-  okMsg.value = "";
   try {
     await Publishers.deletePublishers(id);
     await loadPublishers();
-    okMsg.value = "Đã xóa NXB.";
+    Swal.fire(
+      'Đã xóa!',
+      'Nhà xuất bản đã được xóa khỏi hệ thống.',
+      'success'
+    );
   } catch (e) {
-    error.value = e?.response?.data?.message || "Xóa NXB thất bại";
+    Swal.fire(
+      'Lỗi!',
+      e?.response?.data?.message || 'Xóa NXB thất bại',
+      'error'
+    );
   } finally {
     loading.value = false;
   }
@@ -239,9 +272,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.book-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.book-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-
 .bg-primary { background-color: #4f46e5; }
 .bg-secondary { background-color: #f8fafc; }
 .bg-accent { background-color: #10b981; }

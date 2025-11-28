@@ -1,9 +1,16 @@
 import http from "./http";
 
 export const uploadBookImage = (file) => {
-  const fd = new FormData();
-  fd.append("image", file); // Tên 'image' khớp với upload.single('image')
+    // 1. Phải tạo FormData
+    const formData = new FormData();
+    
+    // 2. 'image' là tên trường mà Backend (Multer) đang chờ
+    // (Phải khớp với bên Backend, xem Bước B)
+    formData.append("image", file); 
 
-  // 👇 SỬA THÀNH DÒNG NÀY 👇
-  return http.post("/uploads/book", fd); 
+    return http.post("/uploads/book", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data", // Bắt buộc dòng này
+        },
+    });
 };

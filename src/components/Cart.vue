@@ -1,163 +1,240 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted, nextTick, computed } from 'vue';
 import { useRouter } from 'vue-router';
-// import UserLayout from '@/layouts/userLayout.vue';
 import { useCartStore } from '@/stores/cart.store';
 import { useAuthStore } from '@/stores/auth.store';
-import { createLoan } from '@/api/loans.api';
+import http from "@/api/http"; 
+import Swal from 'sweetalert2'; // 👈 1. Import thư viện Popup
 
 const cartStore = useCartStore();
 const authStore = useAuthStore();
 const router = useRouter();
 
-// Ngày mượn mặc định là hôm nay, ngày trả là 7 ngày sau
+// --- LOGIC TÍNH NGÀY (CHỈ CHO MƯỢN 7 NGÀY) ---
+const addDays = (dateString, days) => {
+    const result = new Date(dateString);
+    result.setDate(result.getDate() + days);
+    return result.toISOString().split('T')[0];
+};
+
 const today = new Date().toISOString().split('T')[0];
-const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+const defaultReturn = addDays(today, 7); 
 
 const borrowDate = ref(today);
-const returnDate = ref(nextWeek);
+const returnDate = ref(defaultReturn);
 const note = ref("");
 const loading = ref(false);
 
-// Xử lý gửi yêu cầu mượn
-// --- Thay thế hàm handleSubmit cũ bằng hàm này ---
+const maxReturnDate = computed(() => {
+    return addDays(borrowDate.value, 7);
+});
+
+const updateIcons = () => {
+    nextTick(() => {
+        if (window.feather) window.feather.replace();
+    });
+};
 
 const handleSubmit = async () => {
-    // 1. Check đăng nhập
+    // 1. Check đăng nhập (Thay alert bằng Popup Warning)
     if (!authStore.user) {
-        alert("Bạn cần đăng nhập!");
-        router.push('/login');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Chưa đăng nhập',
+            text: 'Bạn cần đăng nhập để thực hiện mượn sách!',
+            confirmButtonText: 'Đăng nhập ngay',
+            showCancelButton: true,
+            cancelButtonText: 'Để sau'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.push('/login');
+            }
+        });
         return;
     }
     
-    // 2. DEBUG: In thông tin User ra xem có _id không?
-    console.log("👉 User đang đăng nhập:", authStore.user);
-
-    if (cartStore.cart.length === 0) {
-        alert("Giỏ hàng trống!");
+    // 2. Check giỏ hàng (Thay alert bằng Popup Info)
+    if (!cartStore.items || cartStore.items.length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Giỏ hàng trống',
+            text: 'Hãy chọn vài cuốn sách trước nhé!',
+        });
         return;
     }
 
-    if (!confirm(`Xác nhận mượn ${cartStore.totalItems} cuốn sách?`)) return;
+    // 3. VALIDATE NGÀY TRẢ (Thay alert bằng Popup Error)
+    if (returnDate.value > maxReturnDate.value) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Ngày trả không hợp lệ',
+            text: 'Quy định: Bạn chỉ được mượn tối đa 7 ngày!',
+        });
+        returnDate.value = maxReturnDate.value; 
+        return;
+    }
+    
+    if (returnDate.value < borrowDate.value) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Ngày trả không hợp lệ',
+            text: 'Ngày trả không được nhỏ hơn ngày mượn!',
+        });
+        return;
+    }
+
+    // 4. XÁC NHẬN MƯỢN (Thay confirm bằng Popup Question)
+    const confirmResult = await Swal.fire({
+        title: 'Xác nhận mượn sách?',
+        text: `Bạn muốn mượn ${cartStore.totalItems} cuốn sách này?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Đồng ý mượn',
+        cancelButtonText: 'Hủy bỏ'
+    });
+
+    if (!confirmResult.isConfirmed) return; // Nếu bấm Hủy thì dừng lại
 
     loading.value = true;
     let successCount = 0;
     let failCount = 0;
 
-    for (const book of cartStore.cart) {
+    // 5. Gửi API
+    for (const book of cartStore.items) {
         try {
-            // Lấy ID người dùng. Thử nhiều trường hợp để tránh bị undefined
-            // Backend MongoDB thường dùng _id
-            const userId = authStore.user.sub || authStore.user._id;
-
+            const userId = authStore.user._id || authStore.user.sub;
             if (!userId) {
-                alert("Lỗi: Không tìm thấy ID người dùng. Vui lòng đăng xuất và đăng nhập lại.");
+                Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Không tìm thấy ID người dùng. Hãy đăng nhập lại.' });
                 loading.value = false;
-                return; // Dừng lại ngay
+                return;
             }
 
             const payload = {
-                readerId: userId,  // <-- Quan trọng nhất
-                bookId: book._id,  // ID sách
+                readerId: userId,  
+                bookId: book._id, 
                 borrowDate: borrowDate.value,
                 returnDate: returnDate.value,
                 note: note.value
             };
 
-            // DEBUG: In gói tin gửi đi để kiểm tra
-            console.log("📦 Đang gửi payload:", payload);
-
-            await createLoan(payload);
+            await http.post('/loans', payload); 
             successCount++;
         } catch (error) {
-            const msg = error.response?.data?.message || "Lỗi không xác định";
-    console.error(`❌ Lỗi mượn sách ${book.title}:`, msg);
-    
-    // Bạn có thể alert luôn lỗi cho user thấy nếu muốn:
-    alert(`Cuốn "${book.title}": ${msg}`);
+            const errorMessage = error.response?.data?.message || "Lỗi không xác định";
+            console.error(`❌ Lỗi mượn sách ${book.title}:`, errorMessage);
+            
+            // Thông báo lỗi từng cuốn (dùng Toast nhỏ góc trên)
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: `Lỗi cuốn "${book.title}": ${errorMessage}`,
+                showConfirmButton: false,
+                timer: 4000
+            });
+            
             failCount++;
         }
     }
 
     loading.value = false;
 
+    // 6. Kết quả cuối cùng
     if (successCount > 0) {
-        alert(`Thành công! Đã mượn ${successCount} cuốn.`);
-        cartStore.clearCart();
-        router.push('/');
+        let msg = `Đã gửi yêu cầu mượn ${successCount} cuốn thành công.`;
+        if (failCount > 0) msg += `<br><span style="color:red">(Có ${failCount} cuốn bị lỗi) do bạn đã chỉ được mượn 5 quyển</span>`;
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Hoàn tất!',
+            html: msg, // Dùng html để format chữ
+            confirmButtonText: 'OK'
+        }).then(() => {
+            cartStore.clearCart(); 
+            router.push('/'); 
+        });     
     } else {
-        alert("Mượn thất bại. Vui lòng xem lỗi trong Console (F12).");
+        Swal.fire({
+            icon: 'error',
+            title: 'Mượn thất bại',
+            text: 'Bạn đang mượn cuốn "CONAN" (chưa trả).',
+        });
     }
-};
+}; 
+
 onMounted(() => {
-    if (window.feather) window.feather.replace();
+    updateIcons();
 });
 </script>
 
 <template>
-  <UserLayout>
-    <div class="container mx-auto px-4 max-w-5xl">
+    <div class="container mx-auto px-4 max-w-6xl py-8">
         <h1 class="text-3xl font-bold text-gray-800 mb-8 flex items-center gap-2">
             <i data-feather="shopping-cart" class="text-blue-600"></i>
             Giỏ Sách Của Bạn
         </h1>
 
-        <div v-if="cartStore.cart.length === 0" class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100">
-            <img src="https://cdni.iconscout.com/illustration/premium/thumb/empty-cart-2130356-1800917.png" alt="Empty" class="w-48 mx-auto opacity-70 mb-4">
+        <div v-if="!cartStore.items || cartStore.items.length === 0" class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100">
+            <div class="text-6xl mb-4">🛒</div> 
             <p class="text-gray-500 text-lg mb-6">Chưa có cuốn sách nào trong giỏ.</p>
-            <router-link to="/" class="bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700 transition">
+            <router-link to="/" class="bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700 transition font-medium">
                 Quay lại chọn sách
             </router-link>
         </div>
 
         <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
             <div class="lg:col-span-2 space-y-4">
-                <div 
-                    v-for="(book, index) in cartStore.cart" 
-                    :key="book._id"
-                    class="flex gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition"
-                >
-                    <img 
-                        :src="book.image || 'https://placehold.co/100x150?text=No+Img'" 
-                        class="w-20 h-28 object-cover rounded border"
-                        @error="$event.target.src='https://placehold.co/100x150?text=Error'"
-                    >
-                    
-                    <div class="flex-grow">
-                        <h3 class="font-bold text-lg text-gray-800">{{ book.title }}</h3>
-                        <p class="text-gray-500 text-sm mb-1">Tác giả: {{ book.author }}</p>
-                        <p class="text-blue-600 font-semibold text-sm">
-                            {{ Number(book.price).toLocaleString() }} đ
-                        </p>
+                <div v-for="book in cartStore.items" :key="book._id" class="flex gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition relative group">
+                    <img :src="book.image || 'https://placehold.co/100x150'" class="w-24 h-32 object-cover rounded border" @error="$event.target.src='https://placehold.co/100x150'">
+                    <div class="flex-grow flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800 line-clamp-2">{{ book.title }}</h3>
+                            <p class="text-gray-500 text-sm mb-1">Tác giả: {{ book.author }}</p>
+                            <p class="text-blue-600 font-bold text-lg mt-1">{{ Number(book.price).toLocaleString() }} đ</p>
+                        </div>
+                        <div class="flex justify-end mt-2">
+                            <button @click="cartStore.removeItem(book._id)" class="flex items-center gap-1 text-red-500 hover:text-red-700 transition text-sm font-medium px-2 py-1 rounded hover:bg-red-50">
+                                <i data-feather="trash-2" class="w-4 h-4"></i> Xóa
+                            </button>
+                        </div>
                     </div>
-
-                    <button 
-                        @click="cartStore.removeFromCart(book._id)" 
-                        class="text-gray-400 hover:text-red-500 transition p-2"
-                        title="Xóa khỏi giỏ"
-                    >
-                        <i data-feather="trash-2" class="w-5 h-5"></i>
-                    </button>
                 </div>
             </div>
 
             <div class="lg:col-span-1">
                 <div class="bg-white p-6 rounded-lg shadow-lg border border-blue-100 sticky top-24">
-                    <h3 class="font-bold text-xl mb-4 text-gray-800">Thông tin mượn</h3>
-                    
+                    <h3 class="font-bold text-xl mb-4 text-gray-800 border-b pb-2">Thông tin phiếu mượn</h3>
                     <div class="space-y-4 mb-6">
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">Ngày mượn</label>
-                            <input v-model="borrowDate" type="date" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" readonly>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Người mượn</label>
+                            <div class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-700 font-medium">
+                                {{ authStore.user?.fullName || 'Chưa đăng nhập' }}
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm text-gray-600 mb-1">Ngày trả dự kiến</label>
-                            <input v-model="returnDate" type="date" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">Ngày mượn</label>
+                                <input v-model="borrowDate" type="date" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" readonly>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">
+                                    Ngày trả <span class="text-red-500 text-xs">(Max 7 ngày)</span>
+                                </label>
+                                <input 
+                                    v-model="returnDate" 
+                                    type="date" 
+                                    :min="borrowDate"
+                                    :max="maxReturnDate"
+                                    class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">Ghi chú</label>
-                            <textarea v-model="note" rows="2" placeholder="VD: Sách cần bọc bìa..." class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            <textarea v-model="note" rows="3" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
                         </div>
                     </div>
 
@@ -166,20 +243,18 @@ onMounted(() => {
                             <span>Số lượng sách:</span>
                             <span class="font-bold">{{ cartStore.totalItems }} cuốn</span>
                         </div>
+                        <div class="flex justify-between text-lg text-blue-700 font-bold">
+                            <span>Tổng phí mượn:</span>
+                            <span>{{ cartStore.totalPrice.toLocaleString() }} đ</span>
+                        </div>
                     </div>
 
-                    <button 
-                        @click="handleSubmit" 
-                        :disabled="loading"
-                        class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg disabled:bg-gray-400 flex justify-center items-center gap-2"
-                    >
+                    <button @click="handleSubmit" :disabled="loading" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg disabled:bg-gray-400 flex justify-center items-center gap-2">
                         <span v-if="loading" class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                        {{ loading ? 'Đang xử lý...' : 'Xác Nhận Mượn Sách' }}
+                        <span v-else>Xác Nhận Mượn Sách</span>
                     </button>
                 </div>
             </div>
-
         </div>
     </div>
-  </UserLayout>
 </template>

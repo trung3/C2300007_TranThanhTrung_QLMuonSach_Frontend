@@ -7,7 +7,6 @@
           Quản Lý Mượn – Trả Sách
         </h2>
 
-        <!-- FORM MƯỢN -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-8 border border-primary/10">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-xl font-semibold text-primary">Tạo Phiếu Mượn</h3>
@@ -15,7 +14,6 @@
 
           <form class="grid grid-cols-1 md:grid-cols-3 gap-4" @submit.prevent="saveLoan">
 
-            <!-- Độc giả -->
             <select v-model="form.readerId" class="border border-primary rounded-lg px-4 py-2" required>
               <option value="">Chọn Độc Giả</option>
               <option v-for="r in readers" :key="r._id" :value="r._id">
@@ -23,7 +21,6 @@
               </option>
             </select>
 
-            <!-- Sách -->
             <select v-model="form.bookId" class="border border-primary rounded-lg px-4 py-2" required>
               <option value="">Chọn Sách</option>
               <option v-for="b in books" :key="b._id" :value="b._id">
@@ -31,7 +28,6 @@
               </option>
             </select>
 
-            <!-- Ngày mượn -->
             <input v-model="form.borrowDate"
                    type="date"
                    class="border border-primary rounded-lg px-4 py-2"
@@ -39,19 +35,16 @@
 
             <div class="md:col-span-3 flex items-center gap-3">
               <button type="submit"
-                      class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                      class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
                       :disabled="loading">
-                {{ loading ? "Đang lưu..." : "Mượn Sách" }}
+                <span v-if="loading" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                <span>{{ loading ? "Đang xử lý..." : "Mượn Sách" }}</span>
               </button>
-
-              <span v-if="error" class="text-red-600 ml-3">{{ error }}</span>
-              <span v-if="okMsg" class="text-green-600 ml-3">{{ okMsg }}</span>
             </div>
 
           </form>
         </div>
 
-        <!-- DANH SÁCH ĐANG MƯỢN -->
         <div class="bg-white rounded-lg shadow-lg p-6 border border-primary/10">
 
           <div class="flex items-center justify-between mb-4">
@@ -60,7 +53,7 @@
             <input v-model.trim="q"
                    @input="handleSearch"
                    placeholder="Tìm độc giả, sách..."
-                   class="border rounded px-3 py-2 w-64">
+                   class="border rounded px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-primary">
           </div>
 
           <div class="overflow-x-auto">
@@ -77,7 +70,7 @@
 
               <tbody>
 
-                <tr v-if="loading">
+                <tr v-if="loading && !loans.length">
                   <td colspan="5" class="text-center p-4">Đang tải…</td>
                 </tr>
 
@@ -85,77 +78,42 @@
                   <td colspan="5" class="text-center p-4">Không có dữ liệu.</td>
                 </tr>
 
-                <tr v-for="l in pagedLoans" :key="l._id">
-  <td>{{ l.readerName }}</td>
-  <td>{{ l.bookTitle }}</td>
-  <td>{{ formatDate(l.borrowDate) }}</td>
-  <td>{{ l.statusText }}</td>
+                <tr v-else v-for="l in pagedLoans" :key="l._id" class="border-t hover:bg-gray-50">
+                  <td class="px-4 py-3 font-medium">{{ l.readerName }}</td>
+                  <td class="px-4 py-3">{{ l.bookTitle }}</td>
+                  <td class="px-4 py-3">{{ formatDate(l.borrowDate) }}</td>
+                  <td class="px-4 py-3">
+                    <span :class="l.status === 'borrowing' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'"
+                          class="px-2 py-1 rounded text-xs font-bold uppercase">
+                      {{ l.statusText }}
+                    </span>
+                  </td>
 
-  <td class="px-4 py-3 text-right">
+                  <td class="px-4 py-3 text-right">
+                    <button v-if="l.status === 'borrowing'"
+                            class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 text-sm transition"
+                            @click="returnBook(l._id)">
+                      Trả Sách
+                    </button>
 
-    <!-- Nếu còn đang mượn → hiện nút Trả -->
-<button
-    v-if="l.status === 'borrowing'"
-    class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
-    @click="returnBook(l._id)"
-  >
-    Trả
-  </button>
-
-  <!-- Nút “Đã trả” khi đã trả -->
-  <button
-    v-else
-    class="px-3 py-1 rounded bg-gray-400 text-white cursor-not-allowed"
-    disabled
-  >
-    Đã trả
-  </button>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  </td>
-</tr>
-
-                
-                
-                
-                
-
-                
-                
-                
-                
-                
-                
-                
+                    <button v-else
+                            class="px-3 py-1 rounded bg-gray-200 text-gray-500 cursor-not-allowed text-sm"
+                            disabled>
+                      Đã trả
+                    </button>
+                  </td>
+                </tr>
 
               </tbody>
             </table>
           </div>
 
           <div class="mt-4 flex justify-center gap-2">
-            <button class="px-3 py-1 border rounded"
+            <button class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
                     :disabled="page===1"
                     @click="go(page-1)">« Trước</button>
-            <span>Trang {{ page }} / {{ totalPages }}</span>
-            <button class="px-3 py-1 border rounded"
+            <span class="px-3 py-1 text-primary font-medium">Trang {{ page }} / {{ totalPages }}</span>
+            <button class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
                     :disabled="page===totalPages"
                     @click="go(page+1)">Sau »</button>
           </div>
@@ -166,21 +124,17 @@
   </div>
 </template>
 
-
 <script setup>
 import { ref, reactive, computed, onMounted } from "vue";
 import * as Loans from "@/api/loans.api.js";
 import * as Readers from "@/api/readers.api.js";
 import * as Books from "@/api/books.api.js";
+import Swal from 'sweetalert2'; // 👈 IMPORT SWAL
 
 const readers = ref([]);
 const books = ref([]);
 const loans = ref([]);
-
 const loading = ref(false);
-const error = ref("");
-const okMsg = ref("");
-
 const q = ref("");
 
 const form = reactive({
@@ -197,52 +151,44 @@ function formatDate(d) {
 /* Tải dữ liệu */
 async function loadAll() {
   loading.value = true;
-  error.value = "";
-
   try {
-    const r = await Readers.listReaders();
-    readers.value = r.data;
+    const [rRes, bRes, lRes] = await Promise.all([
+        Readers.listReaders(),
+        Books.listBooks(),
+        Loans.getAllLoans()
+    ]);
 
-    const b = await Books.listBooks();
-    books.value = b.data;
-
-    const l = await Loans.getAllLoans();
-    loans.value = l.data;
-loans.value = l.data.map(item => ({
-  ...item,
-  statusText: item.status === "borrowing" ? "Đang mượn" : "Đã trả"
-}));
+    readers.value = rRes.data;
+    books.value = Array.isArray(bRes.data) ? bRes.data : [];
+    
+    loans.value = lRes.data.map(item => ({
+      ...item,
+      statusText: item.status === "borrowing" ? "Đang mượn" : "Đã trả"
+    }));
 
   } catch (e) {
-    error.value = "Không tải được dữ liệu";
+    Swal.fire('Lỗi', 'Không tải được dữ liệu', 'error');
+  } finally {
+    loading.value = false;
   }
-
-  loading.value = false;
 }
 
 /* Tìm kiếm */
 const filteredLoans = computed(() => {
   if (!q.value) return loans.value;
-
   const kw = q.value.toLowerCase();
-
   return loans.value.filter(l =>
     (l.readerName || "").toLowerCase().includes(kw) ||
     (l.bookTitle || "").toLowerCase().includes(kw) ||
-    (l.statusText || "").toLowerCase().includes(kw) ||
-    (l.status || "").toLowerCase().includes(kw)
+    (l.statusText || "").toLowerCase().includes(kw)
   );
 });
-
-
 
 /* Phân trang */
 const page = ref(1);
 const limit = ref(10);
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredLoans.value.length / limit.value))
-);
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredLoans.value.length / limit.value)));
 
 const pagedLoans = computed(() => {
   const start = (page.value - 1) * limit.value;
@@ -257,58 +203,76 @@ function handleSearch() {
   page.value = 1;
 }
 
-/* Lưu phiếu mượn */
+/* Lưu phiếu mượn (Dùng Swal) */
 async function saveLoan() {
   loading.value = true;
-  error.value = "";
-  okMsg.value = "";
-
   try {
     await Loans.createLoan({ ...form });
-    okMsg.value = "Đã tạo phiếu mượn.";
-    await loadAll();
-  } catch (e) {
-    error.value = e.response?.data?.message || "Lỗi khi lưu";
-  }
+    
+    Swal.fire({
+        icon: 'success',
+        title: 'Thành công',
+        text: 'Đã tạo phiếu mượn mới!',
+        timer: 2000,
+        showConfirmButton: false
+    });
 
-  loading.value = false;
+    await loadAll();
+    // Reset form nhẹ (giữ ngày mượn)
+    form.readerId = "";
+    form.bookId = "";
+  } catch (e) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Thất bại',
+        text: e.response?.data?.message || "Lỗi khi tạo phiếu mượn"
+    });
+  } finally {
+    loading.value = false;
+  }
 }
 
-/* Trả sách */
-/* Trả sách */
-/* Trả sách */
-/* Trả sách */
-/* Trả sách */
-/* Trả sách */
-// Trong file Vue quản lý mượn trả
+/* Trả sách (Dùng Swal Confirm) */
 async function returnBook(id) {
-  if (!confirm("Xác nhận trả sách?")) return;
+  const result = await Swal.fire({
+      title: 'Xác nhận trả sách?',
+      text: "Đánh dấu cuốn sách này là đã trả?",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Đồng ý',
+      cancelButtonText: 'Hủy'
+  });
 
-  // 1. CẬP NHẬT GIAO DIỆN TRƯỚC (Để người dùng thấy "Đã trả" ngay lập tức)
+  if (!result.isConfirmed) return;
+
+  // Optimistic UI Update (Cập nhật giao diện trước)
   const index = loans.value.findIndex(item => item._id === id);
+  const oldStatus = loans.value[index]?.status; // Backup để rollback
+
   if (index !== -1) {
-      // Tự sửa dữ liệu trong mảng local
       loans.value[index].status = "returned";
       loans.value[index].statusText = "Đã trả";
       loans.value[index].returnDate = new Date().toISOString();
   }
 
   try {
-    // 2. Gọi API để lưu vào Database (Chạy ngầm)
     await Loans.returnBook(id);
-    
-    // 3. Load lại lần nữa để đồng bộ dữ liệu thật (nếu cần)
-    // await loadAll();  <-- Có thể bỏ dòng này nếu bước 1 đã làm tốt
-    
+    Swal.fire('Thành công!', 'Sách đã được trả.', 'success');
   } catch (e) {
-    // Nếu API lỗi -> Hoàn tác lại giao diện (Rollback)
-    // alert("Lỗi trả sách! Vui lòng thử lại.");
-    await loadAll(); // Tải lại dữ liệu gốc
+    // Rollback nếu lỗi
+    if (index !== -1) {
+        loans.value[index].status = oldStatus;
+        loans.value[index].statusText = "Đang mượn";
+    }
+    // Swal.fire('Lỗi', 'Không thể cập nhật trạng thái trả sách', 'error');
+    await loadAll();
   }
 }
+
 onMounted(loadAll);
 </script>
-
 
 <style scoped>
 .bg-primary { background-color: #4f46e5; }

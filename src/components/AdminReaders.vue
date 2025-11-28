@@ -6,7 +6,6 @@
           Quản Lý Độc Giả
         </h2>
 
-        <!-- Form thêm/sửa -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-8 border border-primary/10">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-xl font-semibold text-primary">
@@ -20,60 +19,63 @@
           <form class="grid grid-cols-1 md:grid-cols-3 gap-4" @submit.prevent="saveReader">
             
             <input v-model.trim="form.code" placeholder="Mã độc giả (VD: DG001)"
-                   :disabled="editingId"
-                   class="border border-primary rounded-lg px-4 py-2" required>
+                   :disabled="!!editingId"
+                   class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100" required>
 
             <input v-model.trim="form.fullName" placeholder="Họ và tên"
-                   class="border border-primary rounded-lg px-4 py-2" required>
+                   class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
 
             <select v-model.number="form.gender"
-                    class="border border-primary rounded-lg px-4 py-2" required>
+                    class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
               <option :value="1">Nam</option>
               <option :value="0">Nữ</option>
             </select>
 
             <input v-model="form.dob" type="date"
-                   class="border border-primary rounded-lg px-4 py-2" required>
+                   class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
 
             <input v-model.trim="form.address" placeholder="Địa chỉ"
-                   class="border border-primary rounded-lg px-4 py-2" required>
+                   class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
 
             <input v-model.trim="form.phone" placeholder="Số điện thoại"
-                   class="border border-primary rounded-lg px-4 py-2" required>
+                   class="border border-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
             
-      <div class="md:col-span-3 flex items-center gap-3">
-        <button type="submit"
-                class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
-                :disabled="loading">
-          {{ loading ? "Đang lưu..." : (editingId ? "Cập nhật" : "Thêm") }}
-        </button>
-        <button v-if="editingId" type="button" class="px-4 py-2 rounded-lg border hover:bg-gray-50"
-                @click="cancelEdit" :disabled="loading">
-          Hủy
-        </button>
-        <span v-if="error" class="text-red-600 ml-3 text-sm">{{ error }}</span>
-        <span v-if="okMsg" class="text-green-600 ml-3 text-sm">{{ okMsg }}</span>
-      </div>
-    </form>
-        </div>
-                         
-      
-       
+            <div class="md:col-span-3 flex items-center gap-3">
+              <button type="submit"
+                      class="bg-accent text-white px-6 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+                      :disabled="loading">
+                <span v-if="loading" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                <span>{{ loading ? "Đang lưu..." : (editingId ? "Cập nhật" : "Thêm") }}</span>
+              </button>
 
-        <!-- Danh sách độc giả -->
+              <button v-if="editingId" type="button" class="px-4 py-2 rounded-lg border hover:bg-gray-50 text-gray-700 transition"
+                      @click="cancelEdit" :disabled="loading">
+                Hủy
+              </button>
+            </div>
+          </form>
+        </div>
+
         <div class="bg-white rounded-lg shadow-lg p-6 border border-primary/10">
           
-          <div class="flex flex-wrap items-center justify-between mb-4">
+          <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
             <h3 class="text-xl font-semibold text-primary">Danh Sách Độc Giả</h3>
 
-            <input v-model.trim="q"
-                   @input="handleSearch"
-                   placeholder="Tìm theo tên, mã, địa chỉ..."
-                   class="border rounded px-3 py-2 w-64 focus:outline-none">
+            <div class="flex items-center gap-2">
+              <input v-model.trim="q"
+                     @input="handleSearch"
+                     placeholder="Tìm theo tên, mã, địa chỉ..."
+                     class="border rounded px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-primary">
+              <select v-model.number="limit" @change="go(1)" class="border rounded px-2 py-2">
+                <option :value="5">5 / trang</option>
+                <option :value="10">10 / trang</option>
+                <option :value="20">20 / trang</option>
+              </select>
+            </div>
           </div>
 
           <div class="overflow-x-auto">
-            <table class="min-w-full border border-gray-200 rounded-lg">
+            <table class="min-w-full border border-gray-200 rounded-lg overflow-hidden">
               <thead class="bg-gray-50">
                 <tr class="text-left text-sm text-gray-600">
                   <th class="px-4 py-3">Mã</th>
@@ -88,7 +90,7 @@
               </thead>
 
               <tbody>
-                <tr v-if="loading">
+                <tr v-if="loading && !readers.length">
                   <td colspan="8" class="text-center p-4 text-gray-500">Đang tải…</td>
                 </tr>
 
@@ -96,22 +98,22 @@
                   <td colspan="8" class="text-center p-4 text-gray-500">Không có dữ liệu.</td>
                 </tr>
 
-                <tr v-for="r in pagedReaders" :key="r._id" class="border-t hover:bg-gray-50">
-                  <td class="px-4 py-3 text-indigo-600 font-medium">#{{ r.code }}</td>
-                  <td class="px-4 py-3">{{ r.fullName }}</td>
+                <tr v-else v-for="r in pagedReaders" :key="r._id" class="border-t hover:bg-gray-50 transition">
+                  <td class="px-4 py-3 text-indigo-600 font-medium font-mono">#{{ r.code }}</td>
+                  <td class="px-4 py-3 font-medium">{{ r.fullName }}</td>
                   <td class="px-4 py-3">{{ r.gender === 1 ? "Nam" : "Nữ" }}</td>
                   <td class="px-4 py-3">{{ formatDate(r.dob) }}</td>
                   <td class="px-4 py-3">{{ r.address }}</td>
                   <td class="px-4 py-3">{{ r.phone }}</td>
-                  <td class="px-4 py-3">
-                    {{ new Date(r.createdAt).toLocaleString("vi-VN") }}
+                  <td class="px-4 py-3 text-sm text-gray-500">
+                    {{ new Date(r.createdAt).toLocaleDateString("vi-VN") }}
                   </td>
 
                   <td class="px-4 py-3">
                     <div class="flex justify-end gap-2">
-                      <button class="px-3 py-1 rounded bg-blue-500 text-white"
+                      <button class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 text-sm font-medium transition"
                               @click="startEdit(r)">Sửa</button>
-                      <button class="px-3 py-1 rounded bg-red-500 text-white"
+                      <button class="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600 text-sm font-medium transition"
                               @click="removeReader(r._id)">Xóa</button>
                     </div>
                   </td>
@@ -122,11 +124,11 @@
           </div>
 
           <div class="mt-4 flex items-center justify-center gap-2">
-            <button class="px-3 py-1 border rounded"
+            <button class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
                     :disabled="page===1"
                     @click="go(page-1)">« Trước</button>
-            <span>Trang {{ page }} / {{ totalPages }}</span>
-            <button class="px-3 py-1 border rounded"
+            <span class="px-3 py-1 font-medium text-primary">Trang {{ page }} / {{ totalPages }}</span>
+            <button class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
                     :disabled="page===totalPages"
                     @click="go(page+1)">Sau »</button>
           </div>
@@ -136,9 +138,11 @@
     </section>
   </div>
 </template>
+
 <script setup>
 import { ref, reactive, onMounted, computed } from "vue";
 import * as Readers from "@/api/readers.api";
+import Swal from 'sweetalert2'; // 👈 IMPORT SWAL
 
 const page = ref(1);
 const limit = ref(10);
@@ -146,9 +150,6 @@ const q = ref("");
 
 const readers = ref([]);
 const loading = ref(false);
-const error = ref("");
-const okMsg = ref("");
-
 const editingId = ref(null);
 
 const form = reactive({
@@ -171,6 +172,12 @@ function resetForm() {
   });
 }
 
+// Format date for Input type="date" (YYYY-MM-DD)
+function formatDateInput(d) {
+    if(!d) return "";
+    return new Date(d).toISOString().split('T')[0];
+}
+
 function formatDate(d) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("vi-VN");
@@ -179,12 +186,11 @@ function formatDate(d) {
 // Load độc giả
 async function loadReaders() {
   loading.value = true;
-  error.value = "";
   try {
     const { data } = await Readers.listReaders();
-    readers.value = data;
+    readers.value = Array.isArray(data) ? data : [];
   } catch {
-    error.value = "Không tải được danh sách";
+    Swal.fire('Lỗi', 'Không tải được danh sách độc giả', 'error');
   } finally {
     loading.value = false;
   }
@@ -195,10 +201,10 @@ const filteredReaders = computed(() => {
   if (!q.value) return readers.value;
   const kw = q.value.toLowerCase();
   return readers.value.filter(r =>
-    r.fullName.toLowerCase().includes(kw) ||
-    r.code.toLowerCase().includes(kw) ||
-    r.address.toLowerCase().includes(kw) ||
-    r.phone.includes(kw)
+    (r.fullName || "").toLowerCase().includes(kw) ||
+    (r.code || "").toLowerCase().includes(kw) ||
+    (r.address || "").toLowerCase().includes(kw) ||
+    (r.phone || "").includes(kw)
   );
 });
 
@@ -222,7 +228,11 @@ function handleSearch() {
 
 function startEdit(r) {
   editingId.value = r._id;
-  Object.assign(form, r);
+  Object.assign(form, {
+      ...r,
+      dob: formatDateInput(r.dob) // Format lại ngày để hiển thị lên input date
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function cancelEdit() {
@@ -230,40 +240,76 @@ function cancelEdit() {
   resetForm();
 }
 
+// ✅ Hàm lưu dùng Swal
 async function saveReader() {
   loading.value = true;
-  error.value = "";
-  okMsg.value = "";
 
   try {
+    const payload = { ...form };
+
     if (!editingId.value) {
-      await Readers.createReader({ ...form });
-      okMsg.value = "Đã thêm độc giả.";
+      await Readers.createReader(payload);
+      Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: 'Đã thêm độc giả mới!',
+          timer: 2000,
+          showConfirmButton: false
+      });
     } else {
-      await Readers.updateReader(editingId.value, { ...form });
-      okMsg.value = "Đã cập nhật.";
+      // Remove code from payload to prevent update
+      const { code, ...updateData } = payload;
+      await Readers.updateReader(editingId.value, updateData);
+      Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: 'Đã cập nhật thông tin độc giả!',
+          timer: 2000,
+          showConfirmButton: false
+      });
       editingId.value = null;
     }
 
     await loadReaders();
     resetForm();
   } catch (e) {
-    error.value = e?.response?.data?.message || "Thao tác thất bại";
+    Swal.fire({
+        icon: 'error',
+        title: 'Thất bại',
+        text: e?.response?.data?.message || "Thao tác thất bại"
+    });
   } finally {
     loading.value = false;
   }
 }
 
+// ✅ Hàm xóa dùng Swal Confirm
 async function removeReader(id) {
-  if (!confirm("Xóa độc giả này?")) return;
+  const result = await Swal.fire({
+      title: 'Bạn chắc chắn?',
+      text: "Xóa độc giả này khỏi hệ thống?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Xóa ngay',
+      cancelButtonText: 'Hủy'
+  });
+
+  if (!result.isConfirmed) return;
+
   loading.value = true;
 
   try {
     await Readers.deleteReader(id);
     await loadReaders();
-    okMsg.value = "Đã xóa.";
+    Swal.fire(
+      'Đã xóa!',
+      'Độc giả đã được xóa thành công.',
+      'success'
+    );
   } catch {
-    error.value = "Xóa thất bại";
+    Swal.fire('Lỗi', 'Xóa thất bại', 'error');
   } finally {
     loading.value = false;
   }
@@ -271,10 +317,8 @@ async function removeReader(id) {
 
 onMounted(loadReaders);
 </script>
-<style scoped>
-.book-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.book-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
 
+<style scoped>
 .bg-primary { background-color: #4f46e5; }
 .bg-secondary { background-color: #f8fafc; }
 .bg-accent { background-color: #10b981; }

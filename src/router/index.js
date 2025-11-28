@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth.store";
-
+import Swal from 'sweetalert2'; 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -31,27 +31,33 @@ const router = createRouter({
         { 
           path: "QLSach",     // => /admin/QLSach
           name: "admin-books", 
-          component: () => import("@/components/AdminBooks.vue") 
+          component: () => import("@/components/AdminBooks.vue"), 
+          meta: { requiresStaff: true }
         },
+
         { 
           path: "QLDocGia",   // => /admin/QLDocGia
           name: "admin-readers", 
-          component: () => import("@/components/AdminReaders.vue") 
+          component: () => import("@/components/AdminReaders.vue"),
+          meta: { requiresStaff: true } 
         },
         { 
           path: "QLNhanVien", // => /admin/QLNhanVien
           name: "admin-employees", 
-          component: () => import("@/components/AdminNV.vue") 
+          component: () => import("@/components/AdminNV.vue") ,
+          meta: { requiresStaff: true }
         },
         { 
           path: "QLMuonTra", 
           name: "admin-loans",   
-          component: () => import("@/components/AdminLoans.vue") 
+          component: () => import("@/components/AdminLoans.vue") ,
+          meta: { requiresStaff: true }
         },
         { 
           path: "QLNXB", 
           name: "admin-publishers",   
-          component: () => import("@/components/AdminPublishers.vue") 
+          component: () => import("@/components/AdminPublishers.vue") ,
+          meta: { requiresStaff: true }
         },
       ],
     },
@@ -72,6 +78,11 @@ const router = createRouter({
           name: "cart", // 👈 Tên này để khớp với router.push({ name: 'home' })
           component: () => import("@/components/Cart.vue") 
         },
+        { 
+          path: "/profile", // Link mặc định của "/"
+          name: "profile", // 👈 Tên này để khớp với router.push({ name: 'home' })
+          component: () => import("@/components/profile.vue") 
+        },
       ],
     },
     
@@ -84,27 +95,46 @@ const router = createRouter({
 });
 
 // --- Middleware kiểm tra đăng nhập ---
-router.beforeEach(async (to) => {
+router.beforeEach(async (to, from, next) => {
   const auth = useAuthStore();
-  
-  // Tải thông tin user nếu có token nhưng chưa có data user
-  if (!auth.user && auth.token) await auth.fetchMe().catch(() => {});
 
-  // Nếu trang yêu cầu đăng nhập mà chưa đăng nhập
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return { name: "login", query: { redirect: to.fullPath } };
+  // 1. QUAN TRỌNG: Nếu F5 (reload) mà mất thông tin User, phải tải lại ngay
+  if (!auth.user && localStorage.getItem('token')) {
+      try {
+        await auth.fetchMe();
+      } catch (e) {
+        auth.logout(); // Token lỗi thì đăng xuất luôn
+        return next({ name: 'login' });
+      }
   }
 
-  // Nếu trang chỉ dành cho khách (Login/Register) mà đã đăng nhập rồi
-  if (to.meta.guestOnly && auth.isAuthenticated) {
-    // Check role để chuyển hướng đúng
-    if (auth.user?.role === 'admin' || auth.user?.role === 'staff') {
-        return { name: "admin" };
-    }
-    return { name: "home" };
+  // 2. LOGIC CHẶN ĐỘC GIẢ (Cái bạn đang cần)
+  if (to.meta.requiresStaff) {
+      const role = auth.user?.role;
+      
+      // Nếu quyền KHÔNG PHẢI là 'admin' VÀ KHÔNG PHẢI 'staff'
+      if (role !== 'admin' && role !== 'staff') {
+         Swal.fire({
+            icon: 'error',
+            title: 'Bạn không có quyền truy cập trang quản trị!',
+            // text: 'Bạn không có quyền truy cập trang quản trị!',
+        });  
+          return next({ name: "home" }); // Đá về trang chủ
+      }
   }
 
-  return true;
+  // 3. Logic chặn người chưa đăng nhập (Giữ nguyên)
+  if (to.meta.requiresAuth && !auth.user) {
+      return next({ name: "login", query: { redirect: to.fullPath } });
+  }
+
+  // 4. Logic chặn người đã đăng nhập quay lại trang Login (Giữ nguyên)
+  if (to.meta.guestOnly && auth.user) {
+      return next({ name: "home" });
+  }
+
+  // Cho phép đi tiếp
+  next();
 });
 
 export default router;
