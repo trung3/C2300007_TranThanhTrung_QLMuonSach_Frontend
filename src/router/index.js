@@ -82,6 +82,10 @@ const router = createRouter({
           path: "/profile", // Link mặc định của "/"
           name: "profile", // 👈 Tên này để khớp với router.push({ name: 'home' })
           component: () => import("@/components/profile.vue") 
+        },{ 
+          path: "/history", // Link mặc định của "/"
+          name: "history", // 👈 Tên này để khớp với router.push({ name: 'home' })
+          component: () => import("@/components/history.vue") 
         },
       ],
     },
