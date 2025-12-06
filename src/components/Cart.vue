@@ -144,6 +144,7 @@ const handleSubmit = async () => {
     // 6. Kết quả cuối cùng
     if (successCount > 0) {
         let msg = `Đã gửi yêu cầu mượn ${successCount} cuốn thành công.`;
+        
         if (failCount > 0) msg += `<br><span style="color:red">(Có ${failCount} cuốn bị lỗi) do bạn đã chỉ được mượn 5 quyển</span>`;
         
         Swal.fire({
@@ -156,12 +157,13 @@ const handleSubmit = async () => {
             router.push('/'); 
         });     
     } else {
+        let msgg = `Đã gửi yêu cầu mượn ${cartStore.items.title} cuốn thành công.`;
         Swal.fire({
             icon: 'error',
             title: 'Mượn thất bại',
-            text: 'Bạn đang mượn cuốn "CONAN" (chưa trả).',
+            text: 'Trong giỏ có sách bạn đang mượn chưa trả.',
         });
-    }
+    }   ``
 }; 
 
 onMounted(() => {

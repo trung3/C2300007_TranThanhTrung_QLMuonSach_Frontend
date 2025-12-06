@@ -66,7 +66,7 @@ const router = createRouter({
     {
       path: "/", // Trang chủ
       component: () => import("@/layouts/userLayout.vue"),
-      meta: { requiresAuth: true }, // Hoặc false nếu muốn ai cũng xem được
+       // Hoặc false nếu muốn ai cũng xem được
       children: [
         { 
           path: "", // Link mặc định của "/"
@@ -76,16 +76,19 @@ const router = createRouter({
         { 
           path: "/cart", // Link mặc định của "/"
           name: "cart", // 👈 Tên này để khớp với router.push({ name: 'home' })
-          component: () => import("@/components/Cart.vue") 
+          component: () => import("@/components/Cart.vue"), 
+          meta: { requiresAuth: true }
         },
         { 
           path: "/profile", // Link mặc định của "/"
           name: "profile", // 👈 Tên này để khớp với router.push({ name: 'home' })
-          component: () => import("@/components/profile.vue") 
+          component: () => import("@/components/profile.vue") , 
+          meta: { requiresAuth: true }
         },{ 
           path: "/history", // Link mặc định của "/"
           name: "history", // 👈 Tên này để khớp với router.push({ name: 'home' })
-          component: () => import("@/components/history.vue") 
+          component: () => import("@/components/history.vue") ,
+          meta: { requiresAuth: true }
         },
       ],
     },
