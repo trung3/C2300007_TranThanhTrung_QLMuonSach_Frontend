@@ -188,6 +188,7 @@ const retrieveBooks = async () => {
 const filteredBooks = computed(() => {
     return books.value.filter((book) => {
         const bookName = book.title || book.TenSach || ""; 
+        
         const matchName = bookName.toLowerCase().includes(searchText.value.toLowerCase());
         const matchCategory = selectedCategory.value === "Tất cả thể loại" || book.TheLoai === selectedCategory.value;
         return matchName && matchCategory;

@@ -243,10 +243,7 @@ onMounted(() => {
                             <span>Số lượng sách:</span>
                             <span class="font-bold">{{ cartStore.totalItems }} cuốn</span>
                         </div>
-                        <div class="flex justify-between text-lg text-blue-700 font-bold">
-                            <span>Tổng phí mượn:</span>
-                            <span>{{ cartStore.totalPrice.toLocaleString() }} đ</span>
-                        </div>
+                       
                     </div>
 
                     <button @click="handleSubmit" :disabled="loading" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg disabled:bg-gray-400 flex justify-center items-center gap-2">

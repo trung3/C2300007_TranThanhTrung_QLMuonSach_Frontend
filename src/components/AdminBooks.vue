@@ -385,7 +385,7 @@ async function saveBook() {
   }
 }
 
-// 👇 HÀM XÓA ĐÃ SỬA DÙNG SWAL
+
 async function removeBook(id) {
   // Hiện hộp thoại xác nhận đẹp
   const result = await Swal.fire({
